@@ -1,0 +1,144 @@
+<!DOCTYPE html>
+<html lang="pl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>YourExpense - Zarządzanie Wydatkami</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+    <div id="login-page" class="auth-container">
+        <div class="auth-card">
+            <h1>YourExpense</h1>
+            <p class="subtitle">Zaloguj się, aby zarządzać swoimi finansami</p>
+
+            <form id="login-form">
+                <div class="form-group">
+                    <label for="email">Adres e-mail</label>
+                    <input type="email" id="email" placeholder="np. student@uczelnia.pl" required>
+                </div>
+
+                <div class="form-group">
+                    <label for="password">Hasło</label>
+                    <input type="password" id="password" placeholder="••••••••" required>
+                </div>
+
+                <button type="submit" class="btn-primary">Zaloguj się</button>
+            </form>
+
+            <p class="auth-footer">Pozdrawiam Antona</p>
+        </div>
+    </div>
+
+    <div id="main-dashboard" class="dashboard-container hidden">
+        <header class="dashboard-header">
+            <div class="logo-zone">
+                <h2>YourExpense</h2>
+            </div>
+            <div class="user-zone">
+                <div class="profile-box">
+                    <span id="user-display">Zalogowany jako: test@example.com</span>
+                    <div class="profile-placeholder">Zarządzanie profilem</div>
+                </div>
+                <button id="logout-btn" class="btn-secondary">Wyloguj</button>
+            </div>
+        </header>
+
+        <main class="dashboard-grid">
+
+            <div class="dashboard-card">
+                <h3>Dodawanie wydatków</h3>
+
+                <div class="sub-section">
+                    <h4>+ Dodanie nowej kategori</h4>
+                    <form id="category-form" class="inline-form">
+                        <div class="form-group flex-input">
+                            <input type="text" id="category-name" placeholder="np. Jedzenie, Paliwo, Rozrywka" required>
+                        </div>
+                        <button type="submit" class="btn-primary btn-inline">Dodaj</button>
+                    </form>
+
+                    <ul id="categories-list" class="styled-list">
+                        <li class="loading-text">Ładowanie kategorii...</li>
+                    </ul>
+                </div>
+
+                <hr class="section-divider">
+
+                <div class="sub-section">
+                    <h4>+ Nowy Wydatek</h4>
+                    <form id="expense-form">
+                        <div class="form-row">
+                            <div class="form-group">
+                                <label for="expense-amount">Kwota (zł)</label>
+                                <input type="number" id="expense-amount" step="0.01" placeholder="0.00" required>
+                            </div>
+                            <div class="form-group">
+                                <label for="expense-category">Kategoria</label>
+                                <select id="expense-category" required>
+                                    <option value="" disabled selected>Wybierz kategorię</option>
+                                    </select>
+                            </div>
+                        </div>
+                        <div class="form-group">
+                            <label for="expense-description">Opis wydatku</label>
+                            <input type="text" id="expense-description" placeholder="np. Piwo, Zakupy, Paliwo" required>
+                        </div>
+                        <button type="submit" class="btn-primary">Zapisz wydatek</button>
+                    </form>
+                </div>
+            </div>
+
+            <div class="dashboard-card status-card">
+                <h3>Podsumowanie Miesięczne</h3>
+                <p class="section-desc">Twój aktualny stan wydatków i kontrola limitów</p>
+
+                <div class="stats-box">
+                    <div class="stat-item">
+                        <span class="stat-label">Suma wszystkich wydatków:</span>
+                        <span id="stat-total" class="stat-value">0.00 zł</span>
+                    </div>
+                    <div class="stat-item">
+                        <span class="stat-label">Liczba transakcji:</span>
+                        <span id="stat-count" class="stat-value">0</span>
+                    </div>
+                </div>
+
+                <hr class="section-divider">
+
+                <div class="budget-box">
+                    <h4>Ustawienia Budżetu</h4>
+                    <form id="budget-form" class="inline-form">
+                        <div class="form-group flex-input">
+                            <input type="number" id="budget-limit" step="0.01" placeholder="Ustaw miesięczny limit (zł)" required>
+                        </div>
+                        <button type="submit" class="btn-primary btn-inline">Zapisz</button>
+                    </form>
+
+                    <div id="budget-status-display" class="budget-status-container">
+                        <div class="status-row">
+                            <span>Twój limit:</span>
+                            <span id="budget-limit-val" class="bold-text">0.00 zł</span>
+                        </div>
+                        <div class="status-row">
+                            <span>Wydano w tym miesiącu:</span>
+                            <span id="budget-spent-val" class="bold-text">0.00 zł</span>
+                        </div>
+                        <div class="status-row">
+                            <span>Pozostało:</span>
+                            <span id="budget-remaining-val" class="bold-text success-text">0.00 zł</span>
+                        </div>
+                        <div id="budget-alert" class="alert-box hidden">
+                            Przekroczono dozwolony limit budżetu!
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+        </main>
+    </div>
+
+    <script src="script.js"></script>
+</body>
+</html>
