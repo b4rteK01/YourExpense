@@ -155,3 +155,57 @@ def budget_status(db: Session = Depends(get_db)):
         "remaining": remaining,
         "exceeded": exceeded
     }
+
+@app.get("/dashboard")
+def dashboard(db: Session = Depends(get_db)):
+    
+    monthly = db.query(
+        func.sum(Expense.amount).label("total_spent"),
+        func.count(Expense.id).label("expenses_count"),
+        func.avg(Expense.amount).label("average_expense"),
+    ).first()
+
+    largest = (
+        db.query(Expense)
+        .order_by(desc(Expense.amount))
+        .first()
+    )
+
+    budget = db.query(Budget).filter(Budget.user_id == 1).first()
+
+    total_spent = monthly.total_spent or 0
+    
+    remaining = 0
+    exceeded = False
+
+    if budget:
+        remaining = budget.monthly_limit - total_spent
+        exceeded = total_spent > budget.monthly_limit
+
+    categories = (
+        db.query(
+            Category.name,
+            func.sum(Expense.amount).label("total")
+        )
+        .join(Expense, Expense.category_id == Category.id)
+        .group_by(Category.name)
+        .all()
+    )
+
+    return {
+        "monthly_stats": {
+            "total_spent": total_spent,
+            "expenses_count": monthly.expenses_count or 0,
+            "average_expense": monthly.average_expense or 0,
+        },
+
+        "budget_status": {
+            "monthly_limit": budget.monthly_limit if budget else 0,
+            "remaining": remaining,
+            "exceeded": exceeded
+        },
+
+        "largest_expense": largest,
+
+        "category_stats": categories
+    }
