@@ -209,3 +209,14 @@ def dashboard(db: Session = Depends(get_db)):
 
         "category_stats": categories
     }
+
+@app.get("/expenses/recent")
+def recent_expenses(db: Session = Depends(get_db)):
+    expenses = (
+        db.query(Expense)
+        .order_by(desc(Expense.id))
+        .limit(5)
+        .all()
+    )
+    
+    return expenses
