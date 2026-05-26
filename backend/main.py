@@ -1,6 +1,6 @@
 from fastapi import FastAPI, Depends
 from sqlalchemy.orm import Session
-from sqlalchemy import func, desc
+from sqlalchemy import func, desc, asc
 from database import engine, SessionLocal
 from models import Base, Expense, Category, Budget
 
@@ -25,13 +25,47 @@ def add_expense(amount: float, description: str,category_id: int, db: Session = 
     return expense
 
 @app.get("/expenses")
-def get_expenses(category_id: int = None, db: Session = Depends(get_db)):
+def get_expenses(
+    category_id: int = None, 
+    start_date: str = None,
+    end_date: str = None,
+    search: str = None,
+    limit: int = 10,
+    offset: int = 0,
+    sort_by: str = "id",
+    order: str = "desc",
+    db: Session = Depends(get_db)
+):
     query = db.query(Expense)
 
     if category_id:
         query = query.filter(Expense.category_id == category_id)
-        expenses = query.all()
-        return expenses
+        
+    if start_date:
+        query = query.filter(Expense.date >= start_date)
+
+    if end_date:
+        query = query.filter(Expense.date <= end_date)
+
+    if search:
+        query = query.filter(Expense.description.contains(search))
+
+    sortable_columns = {
+        "id": Expense.id,
+        "amount": Expense.amount,
+        "date": Expense.date
+    }
+    
+    sort_column = sortable_columns.get(sort_by, Expense.id)
+    
+    if order == "asc":
+        query = query.order_by(asc(sort_column))
+    else:
+        query = query.order_by(desc(sort_column))
+
+    expenses = query.offset(offset).limit(limit).all()
+    
+    return expenses
 
 @app.delete("/expenses/{expense_id}")
 def delete_expense(expense_id: int, db: Session = Depends(get_db)):
@@ -218,5 +252,5 @@ def recent_expenses(db: Session = Depends(get_db)):
         .limit(5)
         .all()
     )
-    
+
     return expenses
