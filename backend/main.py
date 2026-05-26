@@ -1,6 +1,6 @@
 from fastapi import FastAPI, Depends
 from sqlalchemy.orm import Session
-from sqlalchemy import func
+from sqlalchemy import func, desc
 from database import engine, SessionLocal
 from models import Base, Expense, Category, Budget
 
@@ -107,6 +107,18 @@ def monthly_stats(db: Session = Depends(get_db)):
         "expenses_count": stats.expenses_count or 0,
         "average_expense": stats.average_expense or 0
     }
+
+@app.get("/stats/largest")
+def largest_expense(db: Session = Depends(get_db)):
+    expense = (
+        db.query(Expense)
+        .order_by(desc(Expense.amount))
+        .first()
+    )
+    if not expense:
+        return {"message": "Brak wydatków"}
+    
+    return expense
 
 @app.post("/budget")
 def set_budget(monthly_limit: float, db: Session = Depends(get_db)):
