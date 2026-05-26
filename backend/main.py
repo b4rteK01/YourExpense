@@ -57,15 +57,22 @@ def get_expenses(
     }
     
     sort_column = sortable_columns.get(sort_by, Expense.id)
-    
+
     if order == "asc":
         query = query.order_by(asc(sort_column))
     else:
         query = query.order_by(desc(sort_column))
 
+    total = query.count()
+
     expenses = query.offset(offset).limit(limit).all()
     
-    return expenses
+    return {
+        "total": total,
+        "liit": limit,
+        "offset": offset,
+        "items": expenses
+    }
 
 @app.delete("/expenses/{expense_id}")
 def delete_expense(expense_id: int, db: Session = Depends(get_db)):
