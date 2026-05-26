@@ -69,7 +69,7 @@ def get_expenses(
     
     return {
         "total": total,
-        "liit": limit,
+        "limit": limit,
         "offset": offset,
         "items": expenses
     }
@@ -83,6 +83,7 @@ def delete_expense(expense_id: int, db: Session = Depends(get_db)):
     
     db.delete(expense)
     db.commit()
+    
     return {"message": "Usunięto"}
 
 @app.put("/expenses/{expense_id}")
@@ -97,6 +98,7 @@ def update_expense(expense_id: int, amount: float, description: str, db: Session
     
     db.commit()
     db.refresh(expense)
+    
     return expense
 
 @app.post("/categories")
@@ -106,21 +108,25 @@ def add_category(name: str, db: Session = Depends(get_db)):
     db.add(category)
     db.commit()
     db.refresh(category)
+    
     return category
 
 @app.get("/categories")
 def get_categories(db: Session = Depends(get_db)):
+    
     return db.query(Category).all()
 
 @app.get("/stats")
 def get_stats(db: Session = Depends(get_db)):
-    expenses = db.query(Expense).all()
-    total = sum(exp.amount for exp in expenses)
-    count = len(expenses)
-    return{
-        "total": total,
-        "count": count
-    }
+    stats = db.query(
+    func.sum(Expense.amount).label("total"),
+    func.count(Expense.id).label("count")
+).first()
+
+    return {
+    "total": stats.total or 0,
+    "count": stats.count or 0
+}
 
 @app.get("/stats/categories")
 def category_stats(db: Session = Depends(get_db)):
