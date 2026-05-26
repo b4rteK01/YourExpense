@@ -1,5 +1,6 @@
 from fastapi import FastAPI, Depends
 from sqlalchemy.orm import Session
+from sqlalchemy import func
 from database import engine, SessionLocal
 from models import Base, Expense, Category, Budget
 
@@ -78,6 +79,33 @@ def get_stats(db: Session = Depends(get_db)):
     return{
         "total": total,
         "count": count
+    }
+
+@app.get("/stats/categories")
+def category_stats(db: Session = Depends(get_db)):
+    stats = (
+        db.query(
+            Category.name,
+            func.sum(Expense.amount).label("total")
+        )
+        .join(Expense, Expense.category_id == Category.id)
+        .group_by(Category.name)
+        .all()
+    )
+    return stats
+
+@app.get("/stats/monthly")
+def monthly_stats(db: Session = Depends(get_db)):
+    stats = db.query(
+        func.sum(Expense.amount).label("total_spent"),
+        func.count(Expense.id).label("expenses_count"),
+        func.avg(Expense.amount).label("average_expense")
+    ).first()
+
+    return {
+        "total_spent": stats.total_spent or 0,
+        "expenses_count": stats.expenses_count or 0,
+        "average_expense": stats.average_expense or 0
     }
 
 @app.post("/budget")
