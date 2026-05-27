@@ -3,8 +3,15 @@ from sqlalchemy.orm import Session
 from sqlalchemy import func, desc, asc
 from database import engine, SessionLocal
 from models import Base, Expense, Category, Budget, User
+from passlib.context import CryptContext
+from schemas import UserCreate
 
 app = FastAPI()
+
+pwd_context = CryptContext(
+    schemes=["bcrypt"],
+    deprecated="auto"
+)
 
 Base. metadata.create_all(bind=engine)
 
@@ -270,15 +277,17 @@ def recent_expenses(db: Session = Depends(get_db)):
     return expenses
 
 @app.post("/register")
-def register(email:str, password: str, db: Session = Depends(get_db)):
+def register(user: UserCreate, db: Session = Depends(get_db)):
     
-    existing_user = db.query(User).filter(User.email == email). first()
+    existing_user = db.query(User).filter(User.email == user.email). first()
     if existing_user:
         return {"error": "Użytkownik już istnieje"}
     
+    hashed_password = pwd_context.hash(user.password)
+
     user = User(
-        email=email,
-        password=password
+        email=user.email,
+        password=hashed_password
     )
 
     db.add(user)
@@ -289,3 +298,7 @@ def register(email:str, password: str, db: Session = Depends(get_db)):
         "message": "Użytkownik utworzony",
         "user_id": user.id
     }
+
+@app.get("/users")
+def get_users(db: Session = Depends(get_db)):
+    return db.query(User).all()
