@@ -4,7 +4,7 @@ from sqlalchemy import func, desc, asc
 from database import engine, SessionLocal
 from models import Base, Expense, Category, Budget, User
 from passlib.context import CryptContext
-from schemas import UserCreate
+from schemas import UserCreate, UserLogin
 
 app = FastAPI()
 
@@ -297,6 +297,27 @@ def register(user: UserCreate, db: Session = Depends(get_db)):
     return {
         "message": "Użytkownik utworzony",
         "user_id": user.id
+    }
+
+@app.post("/login")
+def login(user: UserLogin, db: Session = Depends(get_db)):
+    
+    existing_user = db.query(User).filter(User.email == user.email).first()
+    
+    if not existing_user:
+        return {"error": "Nieprawidłowe dane"}
+
+    valid_password = pwd_context.verify(
+        user.password,
+        existing_user.password
+    )
+
+    if not valid_password:
+        return {"error": "Nieprawidłowe dane"}
+
+    return {
+        "message": "Logowanie poprawne",
+        "user_id": existing_user.id
     }
 
 @app.get("/users")
