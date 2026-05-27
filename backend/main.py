@@ -2,7 +2,7 @@ from fastapi import FastAPI, Depends
 from sqlalchemy.orm import Session
 from sqlalchemy import func, desc, asc
 from database import engine, SessionLocal
-from models import Base, Expense, Category, Budget
+from models import Base, Expense, Category, Budget, User
 
 app = FastAPI()
 
@@ -259,6 +259,7 @@ def dashboard(db: Session = Depends(get_db)):
 
 @app.get("/expenses/recent")
 def recent_expenses(db: Session = Depends(get_db)):
+    
     expenses = (
         db.query(Expense)
         .order_by(desc(Expense.id))
@@ -267,3 +268,24 @@ def recent_expenses(db: Session = Depends(get_db)):
     )
 
     return expenses
+
+@app.post("/register")
+def register(email:str, password: str, db: Session = Depends(get_db)):
+    
+    existing_user = db.query(User).filter(User.email == email). first()
+    if existing_user:
+        return {"error": "Użytkownik już istnieje"}
+    
+    user = User(
+        email=email,
+        password=password
+    )
+
+    db.add(user)
+    db.commit()
+    db.refresh(user)
+
+    return {
+        "message": "Użytkownik utworzony",
+        "user_id": user.id
+    }

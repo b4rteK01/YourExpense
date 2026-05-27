@@ -1,5 +1,6 @@
-from sqlalchemy import Column, Integer, String, Float, ForeignKey
+from sqlalchemy import Column, Integer, String, Float, ForeignKey, DateTime
 from database import Base
+from datetime import datetime, timezone
 
 class User(Base):
     __tablename__ = "users"
@@ -9,9 +10,13 @@ class User(Base):
 
 class Expense(Base):
     __tablename__ = "expenses"
+    
     id = Column(Integer, primary_key=True)
     amount = Column(Float)
     description = Column(String)
+
+    date = Column(DateTime, default=lambda: datetime.now(timezone.utc))
+
     user_id = Column(Integer, ForeignKey("users.id"))
     category_id = Column(Integer, ForeignKey("categories.id"))
 
