@@ -5,6 +5,8 @@ from database import engine, SessionLocal
 from models import Base, Expense, Category, Budget, User
 from passlib.context import CryptContext
 from schemas import UserCreate, UserLogin
+from jose import jwt
+from datetime import datetime, timedelta, timezone
 
 app = FastAPI()
 
@@ -12,6 +14,28 @@ pwd_context = CryptContext(
     schemes=["bcrypt"],
     deprecated="auto"
 )
+
+SECRET_KEY = "supersecretkey"
+ALGORITHM = "HS256"
+ACCESS_TOKEN_EXPIRE_MINUTES = 30
+
+def create_access_token(data: dict):
+
+    to_encode = data.copy()
+
+    expire = datetime.now(timezone.utc) + timedelta(
+        minutes=ACCESS_TOKEN_EXPIRE_MINUTES
+    )
+
+    to_encode.update({"exp": expire})
+
+    encoded_jwt = jwt.encode(
+        to_encode,
+        SECRET_KEY,
+        algorithm=ALGORITHM
+    )
+
+    return encoded_jwt
 
 Base. metadata.create_all(bind=engine)
 
@@ -315,9 +339,13 @@ def login(user: UserLogin, db: Session = Depends(get_db)):
     if not valid_password:
         return {"error": "Nieprawidłowe dane"}
 
+    access_token = create_access_token(
+        data={"sub": existing_user.email}
+    )
+
     return {
-        "message": "Logowanie poprawne",
-        "user_id": existing_user.id
+        "access_token": access_token,
+        "token_type": "bearer"
     }
 
 @app.get("/users")
