@@ -12,8 +12,6 @@ from schemas import (
 
 from .security import (
     get_current_user,
-    pwd_context,
-    create_access_token,
     get_db
 )
 router = APIRouter()
