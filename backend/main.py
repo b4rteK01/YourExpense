@@ -1,14 +1,24 @@
-from fastapi import FastAPI, Depends
+from fastapi import FastAPI, Depends, HTTPException
+from fastapi.security import OAuth2PasswordBearer
 from sqlalchemy.orm import Session
 from sqlalchemy import func, desc, asc
+from schemas import UserCreate, UserLogin
 from database import engine, SessionLocal
+from datetime import datetime, timedelta, timezone
 from models import Base, Expense, Category, Budget, User
 from passlib.context import CryptContext
-from schemas import UserCreate, UserLogin
-from jose import jwt
-from datetime import datetime, timedelta, timezone
+from jose import jwt, JWTError
 
 app = FastAPI()
+
+Base.metadata.create_all(bind=engine)
+
+def get_db():
+    db = SessionLocal()
+    try:
+        yield db
+    finally:
+        db.close()
 
 pwd_context = CryptContext(
     schemes=["bcrypt"],
@@ -18,6 +28,8 @@ pwd_context = CryptContext(
 SECRET_KEY = "supersecretkey"
 ALGORITHM = "HS256"
 ACCESS_TOKEN_EXPIRE_MINUTES = 30
+
+oauth2_scheme = OAuth2PasswordBearer(tokenUrl="login")
 
 def create_access_token(data: dict):
 
@@ -37,18 +49,53 @@ def create_access_token(data: dict):
 
     return encoded_jwt
 
-Base. metadata.create_all(bind=engine)
+def get_current_user(
+    token: str = Depends(oauth2_scheme),
+    db: Session = Depends(get_db)
+):
 
-def get_db():
-    db = SessionLocal()
+    credentials_exception = HTTPException(
+        status_code=401,
+        detail="Nie można zweryfikować użytkownika"
+    )
+
     try:
-        yield db
-    finally:
-        db.close()
+
+        payload = jwt.decode(
+            token,
+            SECRET_KEY,
+            algorithms=[ALGORITHM]
+        )
+
+        email = payload.get("sub")
+
+        if email is None:
+            raise credentials_exception
+
+    except JWTError:
+        raise credentials_exception
+
+    user = db.query(User).filter(User.email == email).first()
+
+    if user is None:
+        raise credentials_exception
+
+    return user
 
 @app.post("/expenses")
-def add_expense(amount: float, description: str,category_id: int, db: Session = Depends(get_db)):
-    expense = Expense(amount=amount, description=description, user_id=1, category_id=category_id)
+def add_expense(
+    amount: float, 
+    description: str,
+    category_id: int, 
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+
+    expense = Expense(
+        amount=amount, 
+        description=description, 
+        user_id=current_user.id, 
+        category_id=category_id)
     
     db.add(expense)
     db.commit()
@@ -65,9 +112,13 @@ def get_expenses(
     offset: int = 0,
     sort_by: str = "id",
     order: str = "desc",
-    db: Session = Depends(get_db)
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
 ):
-    query = db.query(Expense)
+    
+    query = db.query(Expense).filter(
+        Expense.user_id == current_user.id
+    )
 
     if category_id:
         query = query.filter(Expense.category_id == category_id)
@@ -106,8 +157,16 @@ def get_expenses(
     }
 
 @app.delete("/expenses/{expense_id}")
-def delete_expense(expense_id: int, db: Session = Depends(get_db)):
-    expense = db.query(Expense).filter(Expense.id == expense_id).first()
+def delete_expense(
+    expense_id: int, 
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    
+    expense = db.query(Expense).filter(
+        Expense.id == expense_id,
+        Expense.user_id == current_user.id
+    ).first()
     
     if not expense:
         return {"error": "Nie znaleziono"}
@@ -118,8 +177,18 @@ def delete_expense(expense_id: int, db: Session = Depends(get_db)):
     return {"message": "Usunięto"}
 
 @app.put("/expenses/{expense_id}")
-def update_expense(expense_id: int, amount: float, description: str, db: Session = Depends(get_db)):
-    expense = db.query(Expense).filter(Expense.id == expense_id).first()
+def update_expense(
+    expense_id: int,
+    amount: float, 
+    description: str, 
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)    
+):
+    
+    expense = db.query(Expense).filter(
+        Expense.id == expense_id,
+        Expense.user_id  == current_user.id      
+).first()
     
     if not expense:
         return {"error": "Nie znaleziono"}
@@ -132,9 +201,34 @@ def update_expense(expense_id: int, amount: float, description: str, db: Session
     
     return expense
 
+@app.get("/expenses/recent")
+def recent_expenses(
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    
+    expenses = (
+        db.query(Expense).filter(
+            Expense.user_id == current_user.id
+        )
+        .order_by(desc(Expense.id))
+        .limit(5)
+        .all()
+    )
+
+    return expenses
+
 @app.post("/categories")
-def add_category(name: str, db: Session = Depends(get_db)):
-    category = Category(name=name, user_id=1)
+def add_category(
+    name: str, 
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)    
+):
+    
+    category = Category(
+        name=name, 
+        user_id=current_user.id
+    )
     
     db.add(category)
     db.commit()
@@ -143,15 +237,26 @@ def add_category(name: str, db: Session = Depends(get_db)):
     return category
 
 @app.get("/categories")
-def get_categories(db: Session = Depends(get_db)):
+def get_categories(
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
     
-    return db.query(Category).all()
+    return db.query(Category).filter(
+        Category.user_id == current_user.id
+    ).all()
 
 @app.get("/stats")
-def get_stats(db: Session = Depends(get_db)):
+def get_stats(
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    
     stats = db.query(
     func.sum(Expense.amount).label("total"),
     func.count(Expense.id).label("count")
+).filter(
+    Expense.user_id == current_user.id
 ).first()
 
     return {
@@ -160,24 +265,35 @@ def get_stats(db: Session = Depends(get_db)):
 }
 
 @app.get("/stats/categories")
-def category_stats(db: Session = Depends(get_db)):
+def category_stats(
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    
     stats = (
         db.query(
             Category.name,
             func.sum(Expense.amount).label("total")
         )
         .join(Expense, Expense.category_id == Category.id)
+        .filter(Expense.user_id == current_user.id)
         .group_by(Category.name)
         .all()
     )
     return stats
 
 @app.get("/stats/monthly")
-def monthly_stats(db: Session = Depends(get_db)):
+def monthly_stats(
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    
     stats = db.query(
         func.sum(Expense.amount).label("total_spent"),
         func.count(Expense.id).label("expenses_count"),
         func.avg(Expense.amount).label("average_expense")
+    ).filter(
+    Expense.user_id == current_user.id
     ).first()
 
     return {
@@ -187,9 +303,15 @@ def monthly_stats(db: Session = Depends(get_db)):
     }
 
 @app.get("/stats/largest")
-def largest_expense(db: Session = Depends(get_db)):
+def largest_expense(
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    
     expense = (
-        db.query(Expense)
+        db.query(Expense).filter(
+                Expense.user_id == current_user.id
+        )
         .order_by(desc(Expense.amount))
         .first()
     )
@@ -199,13 +321,23 @@ def largest_expense(db: Session = Depends(get_db)):
     return expense
 
 @app.post("/budget")
-def set_budget(monthly_limit: float, db: Session = Depends(get_db)):
-    budget = db.query(Budget).filter(Budget.user_id == 1).first()
+def set_budget(
+    monthly_limit: float, 
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    
+    budget = db.query(Budget).filter(
+        Budget.user_id == current_user.id
+    ).first()
     
     if budget:
         budget.monthly_limit = monthly_limit
     else:
-        budget = Budget(monthly_limit=monthly_limit, user_id=1)
+        budget = Budget(
+            monthly_limit=monthly_limit, 
+            user_id=current_user.id
+        )
         db.add(budget)
         
     db.commit()
@@ -213,13 +345,21 @@ def set_budget(monthly_limit: float, db: Session = Depends(get_db)):
     return budget
 
 @app.get("/budget/status")
-def budget_status(db: Session = Depends(get_db)):
-    budget = db.query(Budget).filter(Budget.user_id == 1).first()
+def budget_status(
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    
+    budget = db.query(Budget).filter(
+        Budget.user_id == current_user.id
+    ).first()
 
     if not budget:
-        return {"error:" "Brak budżetu"}
+        return {"error": "Brak budżetu"}
 
-    expenses = db.query(Expense).filter(Expense.user_id == 1).all()
+    expenses = db.query(Expense).filter(
+        Expense.user_id == current_user.id
+    ).all()
     
     spent = sum(exp.amount for exp in expenses)
     
@@ -235,21 +375,29 @@ def budget_status(db: Session = Depends(get_db)):
     }
 
 @app.get("/dashboard")
-def dashboard(db: Session = Depends(get_db)):
+def dashboard(
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
     
     monthly = db.query(
         func.sum(Expense.amount).label("total_spent"),
         func.count(Expense.id).label("expenses_count"),
         func.avg(Expense.amount).label("average_expense"),
+    ).filter(
+        Expense.user_id == current_user.id
     ).first()
 
     largest = (
         db.query(Expense)
+        .filter(Expense.user_id == current_user.id)
         .order_by(desc(Expense.amount))
         .first()
     )
 
-    budget = db.query(Budget).filter(Budget.user_id == 1).first()
+    budget = db.query(Budget).filter(
+        Budget.user_id == current_user.id
+    ).first()
 
     total_spent = monthly.total_spent or 0
     
@@ -266,6 +414,7 @@ def dashboard(db: Session = Depends(get_db)):
             func.sum(Expense.amount).label("total")
         )
         .join(Expense, Expense.category_id == Category.id)
+        .filter(Expense.user_id == current_user.id)
         .group_by(Category.name)
         .all()
     )
@@ -287,18 +436,6 @@ def dashboard(db: Session = Depends(get_db)):
 
         "category_stats": categories
     }
-
-@app.get("/expenses/recent")
-def recent_expenses(db: Session = Depends(get_db)):
-    
-    expenses = (
-        db.query(Expense)
-        .order_by(desc(Expense.id))
-        .limit(5)
-        .all()
-    )
-
-    return expenses
 
 @app.post("/register")
 def register(user: UserCreate, db: Session = Depends(get_db)):
@@ -351,3 +488,7 @@ def login(user: UserLogin, db: Session = Depends(get_db)):
 @app.get("/users")
 def get_users(db: Session = Depends(get_db)):
     return db.query(User).all()
+
+@app.get("/me")
+def read_users_me(current_user: User = Depends(get_current_user)):
+    return current_user
