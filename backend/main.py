@@ -27,7 +27,7 @@ def get_db():
 def get_users(db: Session = Depends(get_db)):
     return db.query(User).all()
 
-@app.get("/me")
+@app.get("/me", response_model=UserResponse)
 def read_users_me(current_user: User = Depends(get_current_user)):
     return current_user
 
