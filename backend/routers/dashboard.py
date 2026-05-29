@@ -80,9 +80,20 @@ def dashboard(
             "exceeded": exceeded
         },
 
-        "largest_expense": largest,
+        "largest_expense": {
+            "id": largest.id,
+            "amount": largest.amount,
+            "description": largest.description,
+            "category_id": largest.category_id,
+        } if largest else None,
 
-        "category_stats": categories
+        "category_stats": [
+            {
+                "category": category,
+                "total": total
+            }
+            for category, total in categories
+        ]
     }
 
 @router.get("/stats")
@@ -119,7 +130,14 @@ def category_stats(
         .group_by(Category.name)
         .all()
     )
-    return stats
+
+    return [
+        {
+            "category": row.name,
+            "total": row.total
+        }
+        for row in stats
+    ]
 
 @router.get("/stats/monthly")
 def monthly_stats(
