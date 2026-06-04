@@ -14,10 +14,10 @@ const profileModal = document.getElementById('profile-modal');
 const openProfileBtn = document.getElementById('open-profile-btn');
 const closeProfileBtn = document.getElementById('close-profile-btn');
 
-// BAZA DANYCH W PAMIĘCI LOKALNEJ
+//
 let categories = [];
 
-let expenses = JSON.parse(localStorage.getItem('user_expenses')) || [];
+let expenses = [];
 
 // Nawigacja: Przełączanie ekranów autoryzacji
 if (document.getElementById('go-to-register')) {
@@ -56,7 +56,6 @@ window.addEventListener('click', (e) => {
 });
 
 async function loadCategories() {
-
     const token = localStorage.getItem('token');
 
     if (!token) {
@@ -64,7 +63,6 @@ async function loadCategories() {
     }
 
     try {
-
         const response = await fetch(`${API_URL}/categories`, {
             headers: {
                 Authorization: `Bearer ${token}`
@@ -74,15 +72,10 @@ async function loadCategories() {
         if (!response.ok) {
             throw new Error('Błąd pobierania kategorii');
         }
-
         categories = await response.json();
-
         renderCategories();
-
     } catch (error) {
-
         console.error('Błąd kategorii:', error);
-
     }
 }
 
@@ -154,6 +147,34 @@ function renderCategories() {
     }
 }
 
+async function loadExpenses() {
+    const token = localStorage.getItem('token');
+
+    if (!token) {
+        return;
+    }
+
+    try {
+        const response = await fetch(`${API_URL}/expenses`, {
+            headers: {
+                Authorization: `Bearer ${token}`
+            }
+        });
+
+        if (!response.ok) {
+            throw new Error('Błąd pobierania wydatków');
+        }
+
+        const data = await response.json();
+
+        expenses = data.items;
+
+        renderExpenses();
+    } catch (error) {
+        console.error('Błąd wydatków:', error);
+    }
+}
+
 function renderExpenses() {
     const tbody = document.getElementById('expenses-list-body');
     const noExpensesAlert = document.getElementById('no-expenses-alert');
@@ -174,13 +195,30 @@ function renderExpenses() {
         if (noExpensesAlert) noExpensesAlert.style.display = 'none';
         
         expenses.forEach(exp => {
+            const category = categories.find(
+                c => c.id === exp.category_id
+            );
+
+            const d = new Date(exp.date + "Z");
+
+            const formattedDate =
+                `${d.getDate()}.` +
+                `${String(d.getMonth() + 1).padStart(2, '0')}.` +
+                `${d.getFullYear()} ` +
+                `${String(d.getHours()).padStart(2, '0')}:` +
+                `${String(d.getMinutes()).padStart(2, '0')}`;
+
             totalSum += parseFloat(exp.amount);
 
             const tr = document.createElement('tr');
             tr.innerHTML = `
-                <td><strong>${exp.title}</strong></td>
-                <td><span class="category-tag">${exp.category}</span></td>
-                <td>${exp.date}</td>
+                <td><strong>${exp.description}</strong></td>
+                <td>
+                    <span class="category-tag">
+                        ${category ? category.name : 'Brak kategorii'}
+                    </span>
+                </td>
+                <td>${formattedDate}</td>
                 <td class="amount-text">${parseFloat(exp.amount).toFixed(2)} PLN</td>
                 <td style="text-align: center;">
                     <button class="btn-delete-expense" data-id="${exp.id}">&times;</button>
@@ -220,11 +258,35 @@ function renderExpenses() {
 
     // Usuwanie wydatków
     document.querySelectorAll('.btn-delete-expense').forEach(btn => {
-        btn.addEventListener('click', (e) => {
-            const idToDel = parseInt(e.target.getAttribute('data-id'));
-            expenses = expenses.filter(exp => exp.id !== idToDel);
-            localStorage.setItem('user_expenses', JSON.stringify(expenses));
-            renderExpenses();
+        btn.addEventListener('click', async (e) => {
+
+            const idToDel = parseInt(
+                e.target.getAttribute('data-id')
+            );
+
+            const token = localStorage.getItem('token');
+
+            try {
+                const response = await fetch(
+                    `${API_URL}/expenses/${idToDel}`,
+                    {
+                        method: 'DELETE',
+                        headers: {
+                            Authorization: `Bearer ${token}`
+                        }
+                    }
+                );
+
+                if (!response.ok) {
+                    throw new Error('Nie udało się usunąć wydatku');
+                }
+
+                await loadExpenses();
+
+            } catch (error) {
+                console.error(error);
+                alert('Nie udało się usunąć wydatku');
+            }
         });
     });
 }
@@ -276,30 +338,57 @@ if (categoryForm) {
 // FORMULARZ: DODAWANIE WYDATKU
 const expenseForm = document.getElementById('expense-form');
 if (expenseForm) {
-    expenseForm.addEventListener('submit', (e) => {
+    expenseForm.addEventListener('submit', async (e) => {
         e.preventDefault();
+
         const title = document.getElementById('expense-title').value.trim();
         const amount = document.getElementById('expense-amount').value;
-        const date = document.getElementById('expense-date').value;
-        const category = document.getElementById('expense-category').value;
+        const categoryName = document.getElementById('expense-category').value;
 
-        const newExpense = {
-            id: Date.now(),
-            title: title,
-            amount: amount,
-            date: date,
-            category: category
-        };
+        const category = categories.find(
+            c => c.name === categoryName
+        );
 
-        expenses.push(newExpense);
-        localStorage.setItem('user_expenses', JSON.stringify(expenses));
-        
-        renderExpenses();
-        expenseForm.reset();
-        
-        if (document.getElementById('expense-date')) {
-            document.getElementById('expense-date').valueAsDate = new Date();
+        if (!category) {
+            alert('Nie znaleziono kategorii');
+            return;
         }
+
+        const token = localStorage.getItem('token');
+        try {
+            const response = await fetch(
+                `${API_URL}/expenses`,
+                {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        Authorization: `Bearer ${token}`
+                    },
+                    body: JSON.stringify({
+                        amount: parseFloat(amount),
+                        description: title,
+                        category_id: category.id
+                    })
+                }
+            );
+
+            if (!response.ok) {
+                throw new Error('Nie udało się dodać wydatku');
+            }
+
+            await loadExpenses();
+
+            expenseForm.reset();
+
+            if (document.getElementById('expense-date')) {
+                document.getElementById('expense-date').valueAsDate = new Date();
+            }
+
+        } catch (error) {
+            console.error(error);
+            alert('Nie udało się dodać wydatku');
+        }
+
     });
 }
 
@@ -347,7 +436,7 @@ async function setupDashboardUI(email) {
     }
 
     await loadCategories();
-    renderExpenses();
+    await loadExpenses();
 }
 
 // FORMULARZ LOGOWANIA (POST /login)
