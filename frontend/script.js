@@ -15,14 +15,7 @@ const openProfileBtn = document.getElementById('open-profile-btn');
 const closeProfileBtn = document.getElementById('close-profile-btn');
 
 // BAZA DANYCH W PAMIĘCI LOKALNEJ
-let categories = JSON.parse(localStorage.getItem('user_categories')) || [
-    { id: 1, name: 'Jedzenie' },
-    { id: 2, name: 'Mieszkanie' },
-    { id: 3, name: 'Transport' },
-    { id: 4, name: 'Rozrywka' },
-    { id: 5, name: 'Zdrowie' },
-    { id: 6, name: 'Zakupy' }
-];
+let categories = [];
 
 let expenses = JSON.parse(localStorage.getItem('user_expenses')) || [];
 
@@ -62,6 +55,37 @@ window.addEventListener('click', (e) => {
     }
 });
 
+async function loadCategories() {
+
+    const token = localStorage.getItem('token');
+
+    if (!token) {
+        return;
+    }
+
+    try {
+
+        const response = await fetch(`${API_URL}/categories`, {
+            headers: {
+                Authorization: `Bearer ${token}`
+            }
+        });
+
+        if (!response.ok) {
+            throw new Error('Błąd pobierania kategorii');
+        }
+
+        categories = await response.json();
+
+        renderCategories();
+
+    } catch (error) {
+
+        console.error('Błąd kategorii:', error);
+
+    }
+}
+
 // FUNKCJE RENDERUJĄCE PANEL FINANSOWY
 function renderCategories() {
     const categoriesList = document.getElementById('categories-list');
@@ -81,7 +105,7 @@ function renderCategories() {
             deleteBtn.title = `Usuń kategorię: ${cat.name}`;
             
             // Reakcja na kliknięcie w przycisk usuwania kategorii
-            deleteBtn.addEventListener('click', (e) => {
+            deleteBtn.addEventListener('click', async (e) => {
                 e.stopPropagation(); // Zapobiega błędom propagacji eventów
                 
                 // Sprawdzenie, czy kategoria jest aktualnie używana w jakimś wydatku
@@ -92,9 +116,25 @@ function renderCategories() {
                 }
 
                 if (confirm(`Czy na pewno chcesz usunąć kategorię "${cat.name}"?`)) {
-                    categories = categories.filter(c => c.id !== cat.id);
-                    localStorage.setItem('user_categories', JSON.stringify(categories));
-                    renderCategories();
+                    const token = localStorage.getItem('token');
+                    try {
+                        const response = await fetch(
+                            `${API_URL}/categories/${cat.id}`,
+                            {
+                                method: 'DELETE',
+                                headers: {
+                                    Authorization: `Bearer ${token}`
+                                }
+                            }
+                        );
+                        if (!response.ok) {
+                            throw new Error('Nie udało się usunąć kategorii');
+                        }
+                        await loadCategories();
+                    } catch (error) {
+                        console.error(error);
+                        alert('Nie udało się usunąć kategorii');
+                    }
                 }
             });
 
@@ -192,7 +232,7 @@ function renderExpenses() {
 // FORMULARZ: DODAWANIE KATEGORII
 const categoryForm = document.getElementById('category-form');
 if (categoryForm) {
-    categoryForm.addEventListener('submit', (e) => {
+    categoryForm.addEventListener('submit', async (e) => {
         e.preventDefault();
         const name = document.getElementById('category-name').value.trim();
 
@@ -201,16 +241,35 @@ if (categoryForm) {
             return;
         }
 
-        const newCategory = {
-            id: Date.now(),
-            name: name
-        };
+        const token = localStorage.getItem('token');
 
-        categories.push(newCategory);
-        localStorage.setItem('user_categories', JSON.stringify(categories));
-        
-        renderCategories();
-        categoryForm.reset();
+        try {
+
+            const response = await fetch(`${API_URL}/categories`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    Authorization: `Bearer ${token}`
+                },
+                body: JSON.stringify({
+                    name: name
+                })
+            });
+
+            if (!response.ok) {
+                throw new Error('Nie udało się utworzyć kategorii');
+            }
+
+            await loadCategories();
+
+            categoryForm.reset();
+
+        } catch (error) {
+
+            console.error(error);
+            alert('Nie udało się utworzyć kategorii.');
+
+        }
     });
 }
 
@@ -270,7 +329,7 @@ async function getCurrentUser() {
 }
 
 // KONFIGURACJA WIDOKU PO ZALOGOWANIU
-function setupDashboardUI(email) {
+async function setupDashboardUI(email) {
     authContainer.style.display = 'none';
     appDashboard.style.display = 'flex';
     
@@ -287,7 +346,7 @@ function setupDashboardUI(email) {
         document.getElementById('expense-date').valueAsDate = new Date();
     }
 
-    renderCategories();
+    await loadCategories();
     renderExpenses();
 }
 
@@ -390,7 +449,6 @@ if (logoutBtn) {
     logoutBtn.addEventListener('click', (e) => {
         e.preventDefault();
         localStorage.removeItem('token');
-        localStorage.removeItem('userEmail');
         location.reload();
     });
 }

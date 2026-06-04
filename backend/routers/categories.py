@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 
 from database import SessionLocal
@@ -48,3 +48,32 @@ def get_categories(
     return db.query(Category).filter(
         Category.user_id == current_user.id
     ).all()
+
+@router.delete("/categories/{category_id}")
+def delete_category(
+    category_id: int,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+
+    category = (
+        db.query(Category)
+        .filter(
+            Category.id == category_id,
+            Category.user_id == current_user.id
+        )
+        .first()
+    )
+
+    if not category:
+        raise HTTPException(
+            status_code=404,
+            detail="Kategoria nie istnieje"
+        )
+
+    db.delete(category)
+    db.commit()
+
+    return {
+        "message": "Kategoria usunięta"
+    }
