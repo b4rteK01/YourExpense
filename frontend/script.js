@@ -244,6 +244,31 @@ if (expenseForm) {
     });
 }
 
+async function getCurrentUser() {
+    const token = localStorage.getItem('token');
+
+    if (!token) {
+        return null;
+    }
+
+    try {
+        const response = await fetch(`${API_URL}/me`, {
+            headers: {
+                Authorization: `Bearer ${token}`
+            }
+        });
+
+        if (!response.ok) {
+            return null;
+        }
+
+        return await response.json();
+
+    } catch (error) {
+        return null;
+    }
+}
+
 // KONFIGURACJA WIDOKU PO ZALOGOWANIU
 function setupDashboardUI(email) {
     authContainer.style.display = 'none';
@@ -274,14 +299,6 @@ if (loginForm) {
         const email = document.getElementById('login-email').value;
         const password = document.getElementById('login-password').value;
 
-        if (email === 'test@test.pl' && password === '123456') {
-            localStorage.setItem('token', 'fake-developer-jwt-token');
-            localStorage.setItem('userEmail', email);
-            setupDashboardUI(email);
-            loginForm.reset();
-            return;
-        }
-
         try {
             const response = await fetch(`${API_URL}/login`, {
                 method: 'POST',
@@ -291,7 +308,6 @@ if (loginForm) {
             const data = await response.json();
             if (response.ok) {
                 localStorage.setItem('token', data.access_token);
-                localStorage.setItem('userEmail', email);
                 setupDashboardUI(email);
                 loginForm.reset();
             } else {
@@ -380,10 +396,9 @@ if (logoutBtn) {
 }
 
 // AUTOMATYCZNE LOGOWANIE
-window.addEventListener('DOMContentLoaded', () => {
-    const token = localStorage.getItem('token');
-    const savedEmail = localStorage.getItem('userEmail');
-    if (token && savedEmail) {
-        setupDashboardUI(savedEmail);
+window.addEventListener('DOMContentLoaded', async () => {
+    const user = await getCurrentUser();
+    if (user) {
+        setupDashboardUI(user.email);
     }
 });
