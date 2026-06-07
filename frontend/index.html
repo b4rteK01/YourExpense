@@ -3,8 +3,9 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>YourExpense — System Zarządzania Wydatkami</title>
+    <title>YourExpense — System Zarządzania Finansami</title>
     <link rel="stylesheet" href="style.css">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 </head>
 <body>
 
@@ -12,6 +13,10 @@
         <div id="login-section" class="auth-card">
             <h1 class="brand-title">YourExpense</h1>
             <p class="brand-subtitle">Zaloguj się, aby zarządzać swoimi finansami</p>
+            
+            <div id="session-expired-alert" class="session-alert" style="display: none;">
+                ⏱️ Twoja sesja wygasła lub jesteś niezalogowany. Zaloguj się ponownie.
+            </div>
             
             <form id="login-form">
                 <div class="form-group">
@@ -61,7 +66,10 @@
         <nav class="navbar">
             <div class="nav-left">
                 <span class="nav-logo">YourExpense 💰</span>
-                <span id="welcome-message" class="nav-welcome" style="display: none;"></span>
+                <div class="nav-menu-links">
+                    <button id="nav-btn-dashboard" class="nav-menu-item active">Strona główna</button>
+                    <button id="nav-btn-reports" class="nav-menu-item">Miesięczne raporty</button>
+                </div>
             </div>
             
             <div class="nav-right">
@@ -110,17 +118,16 @@
             </div>
         </div>
 
-        <main class="dashboard-content">
+        <main id="page-dashboard" class="dashboard-content">
             <div class="dashboard-grid">
                 
-                <div class="grid-column-left">
-                    
+                <div class="grid-column-left-narrow">
                     <div class="content-card">
-                        <h3>Dodaj nowy wydatek</h3>
+                        <h3 id="form-expense-title-heading">Dodaj nowy wydatek</h3>
                         <form id="expense-form">
                             <div class="form-group">
                                 <label for="expense-title">Nazwa wydatku / Opis</label>
-                                <input type="text" id="expense-title" placeholder="np. Zakupy spożywcze, Bilet autobusowy" required>
+                                <input type="text" id="expense-title" placeholder="np. Zakupy spożywcze, paliwo" required>
                             </div>
                             
                             <div class="form-row">
@@ -129,7 +136,7 @@
                                     <input type="number" id="expense-amount" step="0.01" min="0.01" placeholder="0.00" required>
                                 </div>
                                 <div class="form-group flex-1">
-                                    <label for="expense-date">Data wydatku</label>
+                                    <label for="expense-date">Data</label>
                                     <input type="date" id="expense-date" required>
                                 </div>
                             </div>
@@ -137,15 +144,40 @@
                             <div class="form-group">
                                 <label for="expense-category">Kategoria</label>
                                 <select id="expense-category" required>
-                                    </select>
+                                </select>
                             </div>
                             
-                            <button type="submit" class="btn-action-purple">Dodaj do rejestru</button>
+                            <button type="submit" id="expense-submit-btn" class="btn-action-purple">Zapisz wydatek</button>
+                            <button type="button" id="btn-cancel-expense-edit" class="btn-action-outline" style="display: none; margin-top: 8px; width: 100%;">Anuluj edycję</button>
                         </form>
                     </div>
 
-                    <div class="content-card">
-                        <h3>Utwórz własną kategorię</h3>
+                    <div class="content-card" style="margin-top: 20px;">
+                        <h3 id="form-income-title-heading">Dodaj nowy dochód</h3>
+                        <form id="income-form">
+                            <div class="form-group">
+                                <label for="income-title">Źródło / Opis dochodu</label>
+                                <input type="text" id="income-title" placeholder="np. Wypłata, stypendium, przelew" required>
+                            </div>
+                            
+                            <div class="form-row">
+                                <div class="form-group flex-1">
+                                    <label for="income-amount">Kwota (PLN)</label>
+                                    <input type="number" id="income-amount" step="0.01" min="0.01" placeholder="0.00" required>
+                                </div>
+                                <div class="form-group flex-1">
+                                    <label for="income-date">Data</label>
+                                    <input type="date" id="income-date" required>
+                                </div>
+                            </div>
+                            
+                            <button type="submit" id="income-submit-btn" class="btn-action-green">Zapisz dochód</button>
+                            <button type="button" id="btn-cancel-income-edit" class="btn-action-outline" style="display: none; margin-top: 8px; width: 100%;">Anuluj edycję</button>
+                        </form>
+                    </div>
+
+                    <div class="content-card" style="margin-top: 20px;">
+                        <h3>Utwórz własną kategorię wydatków</h3>
                         <form id="category-form">
                             <div class="form-group">
                                 <label for="category-name">Nazwa kategorii</label>
@@ -154,60 +186,205 @@
                             <button type="submit" class="btn-action-outline">Zapisz kategorię</button>
                         </form>
 
-                        <h4 class="sub-section-title">Twoje kategorie</h4>
+                        <h4 class="sub-section-title" style="margin-top: 15px;">Twoje kategorie</h4>
                         <div id="categories-list" class="categories-tags-container">
-                            </div>
+                        </div>
                     </div>
-
                 </div>
 
-                <div class="grid-column-right">
+                <div class="grid-column-right-wide">
                     <div class="content-card full-height">
-                        
                         <div class="budget-summary-box">
-                            <div class="budget-input-group">
-                                <label for="monthly-income-input">Twój miesięczny przychód:</label>
-                                <div class="income-input-wrapper">
-                                    <input type="number" id="monthly-income-input" step="0.01" min="0" placeholder="np. 5000">
-                                    <span>PLN</span>
-                                </div>
-                            </div>
-                            
                             <div class="budget-badges-row">
+                                <div class="summary-badge badge-income">
+                                    Przychody: <span id="total-income-sum">0.00</span> PLN
+                                </div>
                                 <div class="summary-badge badge-expense">
                                     Wydatki: <span id="total-expenses-sum">0.00</span> PLN
                                 </div>
                                 <div class="summary-badge badge-balance" id="balance-badge-container">
-                                    Zostanie Ci: <span id="total-balance-left">0.00</span> PLN
+                                    Bilans: <span id="total-balance-left">0.00</span> PLN
                                 </div>
                             </div>
                         </div>
                         
-                        <h3 class="sub-section-title" style="margin-top: 10px;">Historia Twoich wydatków</h3>
+                        <h3 class="sub-section-title" style="margin-top: 10px;">Historia Twoich transakcji</h3>
                         
-                        <div class="table-responsive">
+                        <div class="filters-container">
+                            <div class="filter-row-main">
+                                <input type="text" id="search-title" placeholder="🔍 Szukaj po nazwie...">
+                                <select id="filter-type">
+                                    <option value="">Wszystkie typy</option>
+                                    <option value="income">Tylko dochody</option>
+                                    <option value="expense">Tylko wydatki</option>
+                                </select>
+                                <select id="filter-category">
+                                    <option value="">Wszystkie kategorie</option>
+                                </select>
+                            </div>
+                            <div class="filter-row-secondary">
+                                <div class="filter-group">
+                                    <label>Data od:</label>
+                                    <input type="date" id="filter-date-from">
+                                </div>
+                                <div class="filter-group">
+                                    <label>Data do:</label>
+                                    <input type="date" id="filter-date-to">
+                                </div>
+                                <div class="filter-group">
+                                    <label>Kwota min:</label>
+                                    <input type="number" id="filter-amount-min" step="0.01" placeholder="0.00">
+                                </div>
+                                <div class="filter-group">
+                                    <label>Kwota max:</label>
+                                    <input type="number" id="filter-amount-max" step="0.01" placeholder="np. 500">
+                                </div>
+                                <button id="btn-clear-filters" title="Wyczyść filtry">🔄</button>
+                            </div>
+                        </div>
+                        
+                        <div class="table-responsive" style="margin-top: 15px;">
                             <table class="expenses-table">
                                 <thead>
                                     <tr>
-                                        <th>Wydatek</th>
+                                        <th>Nazwa</th>
+                                        <th>Typ</th>
                                         <th>Kategoria</th>
-                                        <th>Data</th>
-                                        <th>Kwota</th>
+                                        <th id="th-date" class="sortable-header">Data <span class="sort-arrow"></span></th>
+                                        <th id="th-amount" class="sortable-header">Kwota <span class="sort-arrow"></span></th>
                                         <th style="text-align: center;">Akcja</th>
                                     </tr>
                                 </thead>
                                 <tbody id="expenses-list-body">
-                                    </tbody>
+                                </tbody>
                             </table>
                             <div id="no-expenses-alert" class="empty-state-message">
-                                Brak zarejestrowanych wydatków. Wprowadź pierwszy wydatek za pomocą formularza obok!
+                                Brak zarejestrowanych transakcji spełniających kryteria.
                             </div>
+                        </div>
+
+                        <div class="pagination-container" id="history-pagination" style="display: none;">
+                            <button id="btn-prev-page" class="btn-page-nav">« Poprzednia</button>
+                            <span id="pagination-info" class="page-info-text">Strona 1 z 1</span>
+                            <button id="btn-next-page" class="btn-page-nav">Następna »</button>
                         </div>
                     </div>
                 </div>
 
             </div>
         </main>
+
+        <main id="page-reports" class="dashboard-content" style="display: none;">
+            <div class="reports-container-layout">
+                
+                <div class="content-card report-selector-card">
+                    <h3>Generuj raport finansowy</h3>
+                    <div class="report-selectors-row">
+                        <div class="form-group flex-1">
+                            <label for="report-month">Miesiąc</label>
+                            <select id="report-month">
+                                <option value="01">Styczeń</option>
+                                <option value="02">Luty</option>
+                                <option value="03">Marzec</option>
+                                <option value="04">Kwiecień</option>
+                                <option value="05">Maj</option>
+                                <option value="06">Czerwiec</option>
+                                <option value="07">Lipiec</option>
+                                <option value="08">Sierpień</option>
+                                <option value="09">Wrzesień</option>
+                                <option value="10">Październik</option>
+                                <option value="11">Listopad</option>
+                                <option value="12">Grudzień</option>
+                            </select>
+                        </div>
+                        <div class="form-group flex-1">
+                            <label for="report-year">Rok</label>
+                            <select id="report-year">
+                                <option value="2024">2024</option>
+                                <option value="2025">2025</option>
+                                <option value="2026" selected>2026</option>
+                                <option value="2027">2027</option>
+                            </select>
+                        </div>
+                        <button id="btn-generate-report" class="btn-action-purple" style="align-self: flex-end; margin-bottom: 16px; height: 42px; width: auto; padding: 0 25px;">Generuj raport</button>
+                    </div>
+                </div>
+
+                <div id="report-results-area" style="display: none; margin-top: 25px;">
+                    <div class="reports-grid-dashboard">
+                        
+                        <div class="content-card">
+                            <h3>Podsumowanie okresu</h3>
+                            <div class="report-stat-list">
+                                <div class="stat-item">
+                                    <span class="stat-label">Suma dochodów:</span>
+                                    <span id="rep-stat-income" class="stat-value text-green">0.00 PLN</span>
+                                </div>
+                                <div class="stat-item">
+                                    <span class="stat-label">Suma wszystkich wydatków:</span>
+                                    <span id="rep-stat-expenses" class="stat-value text-red">0.00 PLN</span>
+                                </div>
+                                <div class="stat-item">
+                                    <span class="stat-label">Bilans końcowy:</span>
+                                    <span id="rep-stat-balance" class="stat-value">0.00 PLN</span>
+                                </div>
+                                <hr>
+                                <div class="stat-item">
+                                    <span class="stat-label">Średni dzienny wydatek:</span>
+                                    <span id="rep-stat-avg" class="stat-value">0.00 PLN</span>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="content-card chart-flex-card">
+                            <h3>Struktura wydatków (kategorie)</h3>
+                            <div class="chart-wrapper-canvas">
+                                <canvas id="report-pie-chart"></canvas>
+                            </div>
+                        </div>
+
+                    </div>
+
+                    <div class="content-card" style="margin-top: 25px;">
+                        <h3>Rejestr transakcji w wybranym okresie</h3>
+                        <div class="table-responsive">
+                            <table class="expenses-table">
+                                <thead>
+                                    <tr>
+                                        <th>Nazwa</th>
+                                        <th>Typ</th>
+                                        <th>Kategoria</th>
+                                        <th>Data</th>
+                                        <th>Kwota</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="report-expenses-body">
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+
+                <div id="report-empty-state" class="content-card empty-state-message" style="margin-top: 25px; display: block;">
+                    Wybierz miesiąc oraz rok i kliknij „Generuj raport”, aby zobaczyć statystyki.
+                </div>
+
+            </div>
+        </main>
+    </div>
+
+
+    <div id="toast-container" aria-live="polite" aria-atomic="true"></div>
+
+    <div id="confirm-modal" class="confirm-modal-overlay" style="display: none;">
+        <div class="confirm-modal-card">
+            <h3 id="confirm-modal-title">Potwierdzenie</h3>
+            <p id="confirm-modal-message">Czy na pewno chcesz wykonać tę akcję?</p>
+            <div class="confirm-modal-actions">
+                <button id="confirm-modal-cancel" class="btn-confirm-cancel" type="button">Anuluj</button>
+                <button id="confirm-modal-ok" class="btn-confirm-ok" type="button">Potwierdź</button>
+            </div>
+        </div>
     </div>
 
     <script src="script.js"></script>

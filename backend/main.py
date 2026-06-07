@@ -12,6 +12,7 @@ from routers.expenses import router as expenses_router
 from routers.categories import router as categories_router
 from routers.budget import router as budget_router
 from routers.dashboard import router as dashboard_router
+from routers.incomes import router as incomes_router
 
 app = FastAPI()
 
@@ -48,3 +49,4 @@ app.include_router(expenses_router)
 app.include_router(categories_router)
 app.include_router(budget_router)
 app.include_router(dashboard_router)
+app.include_router(incomes_router)

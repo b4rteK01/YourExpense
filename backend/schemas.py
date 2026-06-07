@@ -29,6 +29,16 @@ class ExpenseResponse(BaseModel):
     class Config:
         from_attributes = True
 
+class IncomeResponse(BaseModel):
+    id: int
+    amount: float
+    description: str
+    date: datetime
+    user_id: int
+
+    class Config:
+        from_attributes = True
+
 class CategoryResponse(BaseModel):
     id: int
     name: str
@@ -51,6 +61,10 @@ class ExpenseCreate(BaseModel):
     amount: float = Field(gt=0)
     description: str
     category_id: int
+
+class IncomeCreate(BaseModel):
+    amount: float = Field(gt=0)
+    description: str
 
 class CategoryCreate(BaseModel):
     name: str = Field(min_length=2, max_length=50)

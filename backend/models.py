@@ -20,6 +20,17 @@ class Expense(Base):
     user_id = Column(Integer, ForeignKey("users.id"))
     category_id = Column(Integer, ForeignKey("categories.id"))
 
+class Income(Base):
+    __tablename__ = "incomes"
+
+    id = Column(Integer, primary_key=True)
+    amount = Column(Float)
+    description = Column(String)
+
+    date = Column(DateTime, default=lambda: datetime.now(timezone.utc))
+
+    user_id = Column(Integer, ForeignKey("users.id"))
+
 class Category(Base):
     __tablename__ = "categories"
     id = Column(Integer, primary_key=True)
