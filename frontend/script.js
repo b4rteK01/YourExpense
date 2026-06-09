@@ -359,6 +359,7 @@ function renderExpenses() {
 
     // Filtry
     const searchTitle = document.getElementById('search-title')?.value.toLowerCase().trim() || '';
+    const filterType = document.getElementById('filter-type')?.value || '';
     const filterCategory = document.getElementById('filter-category')?.value || '';
     const dateFrom = document.getElementById('filter-date-from')?.value || '';
     const dateTo = document.getElementById('filter-date-to')?.value || '';
@@ -380,7 +381,8 @@ function renderExpenses() {
         const category = categories.find(c => c.id === item.category_id);
         const catName = category ? category.name : '';
         const itemDate = item.date.substring(0, 10);
-
+        
+        if (filterType && item.type !== filterType) return false;
         if (searchTitle && !item.description.toLowerCase().includes(searchTitle)) return false;
         if (filterCategory && catName !== filterCategory) return false;
         if (dateFrom && itemDate < dateFrom) return false;
@@ -871,7 +873,15 @@ if (incomeForm) {
 // FILTRY
 // ============================================================
 
-const filterIds = ['search-title', 'filter-category', 'filter-date-from', 'filter-date-to', 'filter-amount-min', 'filter-amount-max'];
+const filterIds = [
+    'search-title',
+    'filter-type',
+    'filter-category',
+    'filter-date-from',
+    'filter-date-to',
+    'filter-amount-min',
+    'filter-amount-max'
+];
 filterIds.forEach(id => document.getElementById(id)?.addEventListener('input', () => {
     currentHistoryPage = 1;
     renderExpenses();
