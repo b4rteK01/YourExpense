@@ -2,11 +2,12 @@ from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 
 from database import SessionLocal
-from models import User
-from schemas import UserCreate, UserLogin
+from models import Budget, Category, Expense, Income, User
+from schemas import UserCreate, UserLogin, UserPasswordUpdate
 from .security import (
     pwd_context,
     create_access_token,
+    get_current_user,
     get_db
 )
 
@@ -75,4 +76,41 @@ def login(user: UserLogin, db: Session = Depends(get_db)):
     return {
         "access_token": access_token,
         "token_type": "bearer"
+    }
+
+@router.patch("/me/password")
+def change_password(
+    password_data: UserPasswordUpdate,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    current_user.password = pwd_context.hash(password_data.new_password)
+    db.commit()
+
+    return {
+        "message": "Haslo zmienione"
+    }
+
+@router.delete("/me")
+def delete_account(
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    db.query(Expense).filter(Expense.user_id == current_user.id).delete(
+        synchronize_session=False
+    )
+    db.query(Income).filter(Income.user_id == current_user.id).delete(
+        synchronize_session=False
+    )
+    db.query(Budget).filter(Budget.user_id == current_user.id).delete(
+        synchronize_session=False
+    )
+    db.query(Category).filter(Category.user_id == current_user.id).delete(
+        synchronize_session=False
+    )
+    db.delete(current_user)
+    db.commit()
+
+    return {
+        "message": "Konto usuniete"
     }

@@ -29,6 +29,8 @@ const incomeForm = document.getElementById('income-form');
 let categories = [];
 let expenses = [];
 let incomes = [];
+let transactions = [];
+let historyTotalCount = 0;
 
 // Stan nowych funkcjonalności
 let reportChartInstance = null;
@@ -99,6 +101,46 @@ function showConfirm(message, title = 'Potwierdzenie') {
     });
 }
 
+async function loadTransactions() {
+    const params = new URLSearchParams();
+    const searchTitle = document.getElementById('search-title')?.value.trim() || '';
+    const filterType = document.getElementById('filter-type')?.value || '';
+    const filterCategory = document.getElementById('filter-category')?.value || '';
+    const dateFrom = document.getElementById('filter-date-from')?.value || '';
+    const dateTo = document.getElementById('filter-date-to')?.value || '';
+    const amountMin = document.getElementById('filter-amount-min')?.value || '';
+    const amountMax = document.getElementById('filter-amount-max')?.value || '';
+
+    params.set('limit', String(EXPENSES_PER_PAGE));
+    params.set('offset', String((currentHistoryPage - 1) * EXPENSES_PER_PAGE));
+    params.set('sort_by', currentSortField || 'date');
+    params.set('order', currentSortOrder || 'desc');
+
+    if (searchTitle) params.set('search', searchTitle);
+    if (filterType) params.set('transaction_type', filterType);
+    if (filterCategory) params.set('category_id', filterCategory);
+    if (dateFrom) params.set('start_date', dateFrom);
+    if (dateTo) params.set('end_date', dateTo);
+    if (amountMin) params.set('amount_min', amountMin);
+    if (amountMax) params.set('amount_max', amountMax);
+
+    const response = await fetchWithAuth(`${API_URL}/transactions?${params.toString()}`);
+    if (!response) return;
+
+    try {
+        if (!response.ok) {
+            throw new Error('Blad pobierania historii transakcji');
+        }
+
+        const data = await response.json();
+        transactions = data.items || [];
+        historyTotalCount = data.total || 0;
+        renderExpenses();
+    } catch (error) {
+        console.error('Blad historii transakcji:', error);
+    }
+}
+
 // ============================================================
 // OBSŁUGA SESJI I ZAPYTANIA DO API
 // ============================================================
@@ -151,7 +193,7 @@ if (navBtnDashboard && navBtnReports) {
         if (pageDashboard) pageDashboard.style.display = 'block';
         if (pageReports) pageReports.style.display = 'none';
         currentHistoryPage = 1;
-        renderExpenses();
+        loadTransactions();
     });
 
     navBtnReports.addEventListener('click', () => {
@@ -225,7 +267,7 @@ async function loadCategories() {
 }
 
 async function loadExpenses() {
-    const response = await fetchWithAuth(`${API_URL}/expenses`);
+    const response = await fetchWithAuth(`${API_URL}/expenses?limit=100000`);
     if (!response) return;
 
     try {
@@ -235,7 +277,6 @@ async function loadExpenses() {
 
         const data = await response.json();
         expenses = data.items;
-        renderExpenses();
     } catch (error) {
         console.error('Błąd wydatków:', error);
     }
@@ -261,7 +302,6 @@ async function loadIncomes() {
             throw new Error('Błąd pobierania dochodów');
         }
         incomes = await response.json();
-        renderExpenses();
     } catch (error) {
         console.error('Błąd dochodów:', error);
     }
@@ -334,7 +374,7 @@ function renderCategories() {
         filterCategorySelect.innerHTML = '<option value="">Wszystkie kategorie</option>';
         categories.forEach(cat => {
             const option = document.createElement('option');
-            option.value = cat.name;
+            option.value = cat.id;
             option.textContent = cat.name;
             filterCategorySelect.appendChild(option);
         });
@@ -357,64 +397,7 @@ function renderExpenses() {
     tbody.innerHTML = '';
     let totalSum = 0;
 
-    // Filtry
-    const searchTitle = document.getElementById('search-title')?.value.toLowerCase().trim() || '';
-    const filterType = document.getElementById('filter-type')?.value || '';
-    const filterCategory = document.getElementById('filter-category')?.value || '';
-    const dateFrom = document.getElementById('filter-date-from')?.value || '';
-    const dateTo = document.getElementById('filter-date-to')?.value || '';
-    const amountMin = document.getElementById('filter-amount-min')?.value || '';
-    const amountMax = document.getElementById('filter-amount-max')?.value || '';
-    const allTransactions = [
-        ...expenses.map(exp => ({
-            ...exp,
-            type: 'expense'
-        })),
-        ...incomes.map(income => ({
-            ...income,
-            type: 'income'
-        }))
-    ];
-
-
-    const filtered = allTransactions.filter(item => {
-        const category = categories.find(c => c.id === item.category_id);
-        const catName = category ? category.name : '';
-        const itemDate = item.date.substring(0, 10);
-        
-        if (filterType && item.type !== filterType) return false;
-        if (searchTitle && !item.description.toLowerCase().includes(searchTitle)) return false;
-        if (filterCategory && catName !== filterCategory) return false;
-        if (dateFrom && itemDate < dateFrom) return false;
-        if (dateTo && itemDate > dateTo) return false;
-        if (amountMin && parseFloat(item.amount) < parseFloat(amountMin)) return false;
-        if (amountMax && parseFloat(item.amount) > parseFloat(amountMax)) return false;
-        return true;
-    });
-
     updateSortArrowsUI();
-
-    // Sortowanie
-    if (currentSortField !== null) {
-        filtered.sort((a, b) => {
-            let valA = a[currentSortField];
-            let valB = b[currentSortField];
-
-            if (currentSortField === 'amount') {
-                valA = parseFloat(valA);
-                valB = parseFloat(valB);
-            } else if (currentSortField === 'date') {
-                valA = new Date(valA);
-                valB = new Date(valB);
-            }
-
-            if (valA < valB) return currentSortOrder === 'asc' ? -1 : 1;
-            if (valA > valB) return currentSortOrder === 'asc' ? 1 : -1;
-            return 0;
-        });
-    } else {
-        filtered.sort((a, b) => new Date(b.date) - new Date(a.date));
-    }
 
     // Obliczanie sumy (z pełnej listy, bez filtrów)
     expenses.forEach(exp => {
@@ -448,7 +431,7 @@ function renderExpenses() {
     }
 
     // Paginacja
-    const totalCount = filtered.length;
+    const totalCount = historyTotalCount;
     const totalPages = Math.ceil(totalCount / EXPENSES_PER_PAGE) || 1;
     if (currentHistoryPage > totalPages) currentHistoryPage = totalPages;
 
@@ -458,8 +441,7 @@ function renderExpenses() {
     } else {
         if (noExpensesAlert) noExpensesAlert.style.display = 'none';
 
-        const startIndex = (currentHistoryPage - 1) * EXPENSES_PER_PAGE;
-        const pageItems = filtered.slice(startIndex, startIndex + EXPENSES_PER_PAGE);
+        const pageItems = transactions;
 
         pageItems.forEach(item => {
             const category = categories.find(c => c.id === item.category_id);
@@ -550,6 +532,7 @@ function renderExpenses() {
 
                         await loadExpenses();
                         await loadIncomes();
+                        await loadTransactions();
 
                         showToast(
                             item.type === 'income'
@@ -596,11 +579,11 @@ const btnPrevPage = document.getElementById('btn-prev-page');
 const btnNextPage = document.getElementById('btn-next-page');
 if (btnPrevPage && btnNextPage) {
     btnPrevPage.addEventListener('click', () => {
-        if (currentHistoryPage > 1) { currentHistoryPage--; renderExpenses(); }
+        if (currentHistoryPage > 1) { currentHistoryPage--; loadTransactions(); }
     });
     btnNextPage.addEventListener('click', () => {
         currentHistoryPage++;
-        renderExpenses();
+        loadTransactions();
     });
 }
 
@@ -635,7 +618,7 @@ function handleSortClick(field) {
         currentSortOrder = 'desc';
     }
     currentHistoryPage = 1;
-    renderExpenses();
+    loadTransactions();
 }
 
 // ============================================================
@@ -772,7 +755,8 @@ if (expenseForm) {
                     body: JSON.stringify({
                         amount: parseFloat(amount),
                         description: title,
-                        category_id: category.id
+                        category_id: category.id,
+                        date: `${date}T00:00:00`
                     })
                 });
 
@@ -789,6 +773,7 @@ if (expenseForm) {
 
             currentHistoryPage = 1;
             await loadExpenses();
+            await loadTransactions();
 
         } catch (error) {
             console.error(error);
@@ -814,6 +799,9 @@ if (incomeForm) {
         const amount =
             document.getElementById('income-amount')
             .value;
+        const date =
+            document.getElementById('income-date')
+            .value;
 
         const token =
             localStorage.getItem('token');
@@ -829,7 +817,8 @@ if (incomeForm) {
                     },
                     body: JSON.stringify({
                         amount: parseFloat(amount),
-                        description: title
+                        description: title,
+                        date: `${date}T00:00:00`
                     })
                 }
             );
@@ -841,6 +830,7 @@ if (incomeForm) {
             }
 
             await loadIncomes();
+            await loadTransactions();
 
             incomeForm.reset();
 
@@ -873,19 +863,16 @@ if (incomeForm) {
 // FILTRY
 // ============================================================
 
-const filterIds = [
-    'search-title',
-    'filter-type',
-    'filter-category',
-    'filter-date-from',
-    'filter-date-to',
-    'filter-amount-min',
-    'filter-amount-max'
-];
-filterIds.forEach(id => document.getElementById(id)?.addEventListener('input', () => {
-    currentHistoryPage = 1;
-    renderExpenses();
-}));
+const filterIds = ['search-title', 'filter-type', 'filter-category', 'filter-date-from', 'filter-date-to', 'filter-amount-min', 'filter-amount-max'];
+filterIds.forEach(id => {
+    const el = document.getElementById(id);
+    const onFilterChange = () => {
+        currentHistoryPage = 1;
+        loadTransactions();
+    };
+    el?.addEventListener('input', onFilterChange);
+    el?.addEventListener('change', onFilterChange);
+});
 
 document.getElementById('btn-clear-filters')?.addEventListener('click', () => {
     filterIds.forEach(id => {
@@ -895,7 +882,7 @@ document.getElementById('btn-clear-filters')?.addEventListener('click', () => {
     currentSortField = null;
     currentSortOrder = null;
     currentHistoryPage = 1;
-    renderExpenses();
+    loadTransactions();
 });
 
 // ============================================================
@@ -1060,6 +1047,7 @@ async function setupDashboardUI(email) {
     await loadCategories();
     await loadExpenses();
     await loadIncomes();
+    await loadTransactions();
 }
 
 // ============================================================
@@ -1139,7 +1127,7 @@ if (registerForm) {
 
 const changePasswordForm = document.getElementById('change-password-form');
 if (changePasswordForm) {
-    changePasswordForm.addEventListener('submit', (e) => {
+    changePasswordForm.addEventListener('submit', async (e) => {
         e.preventDefault();
         const newPassword = document.getElementById('profile-new-password').value;
         const newPasswordConfirm = document.getElementById('profile-new-password-confirm').value;
@@ -1148,9 +1136,25 @@ if (changePasswordForm) {
             showToast('Nowe hasła nie są identyczne!', 'error');
             return;
         }
-        showToast('Hasło zmienione pomyślnie!', 'success');
-        if (profileModal) profileModal.style.display = 'none';
-        changePasswordForm.reset();
+        try {
+            const response = await fetchWithAuth(`${API_URL}/me/password`, {
+                method: 'PATCH',
+                body: JSON.stringify({
+                    new_password: newPassword
+                })
+            });
+
+            if (!response || !response.ok) {
+                throw new Error();
+            }
+
+            showToast('Hasło zmienione pomyślnie!', 'success');
+            if (profileModal) profileModal.style.display = 'none';
+            changePasswordForm.reset();
+        } catch (error) {
+            console.error(error);
+            showToast('Nie udało się zmienić hasła.', 'error');
+        }
     });
 }
 
@@ -1165,9 +1169,22 @@ if (deleteAccountBtn) {
         const confirmed = await showConfirm('Czy na pewno chcesz usunąć konto? Tej operacji nie można cofnąć.', 'Usuń konto');
         if (!confirmed) return;
 
-        localStorage.clear();
-        showToast('Konto zostało usunięte.', 'success');
-        setTimeout(() => location.reload(), 900);
+        try {
+            const response = await fetchWithAuth(`${API_URL}/me`, {
+                method: 'DELETE'
+            });
+
+            if (!response || !response.ok) {
+                throw new Error();
+            }
+
+            localStorage.clear();
+            showToast('Konto zostało usunięte.', 'success');
+            setTimeout(() => location.reload(), 900);
+        } catch (error) {
+            console.error(error);
+            showToast('Nie udało się usunąć konta.', 'error');
+        }
     });
 }
 

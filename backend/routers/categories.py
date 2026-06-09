@@ -2,7 +2,7 @@ from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 
 from database import SessionLocal
-from models import Category, User
+from models import Category, Expense, User
 
 from schemas import (
     CategoryCreate,
@@ -69,6 +69,17 @@ def delete_category(
         raise HTTPException(
             status_code=404,
             detail="Kategoria nie istnieje"
+        )
+
+    used_by_expense = db.query(Expense).filter(
+        Expense.category_id == category_id,
+        Expense.user_id == current_user.id
+    ).first()
+
+    if used_by_expense:
+        raise HTTPException(
+            status_code=400,
+            detail="Nie mozna usunac kategorii przypisanej do wydatkow"
         )
 
     db.delete(category)

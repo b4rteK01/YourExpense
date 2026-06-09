@@ -28,6 +28,8 @@ def add_income(
         description=income_data.description,
         user_id=current_user.id
     )
+    if income_data.date:
+        income.date = income_data.date
 
     db.add(income)
     db.commit()

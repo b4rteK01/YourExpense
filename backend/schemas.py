@@ -1,5 +1,6 @@
 from pydantic import BaseModel, EmailStr, Field
 from datetime import datetime
+from typing import Optional
 
 class UserCreate(BaseModel):
     email: EmailStr
@@ -8,6 +9,9 @@ class UserCreate(BaseModel):
 class UserLogin(BaseModel):
     email: EmailStr
     password: str
+
+class UserPasswordUpdate(BaseModel):
+    new_password: str = Field(min_length=6)
 
 #response
   
@@ -61,10 +65,12 @@ class ExpenseCreate(BaseModel):
     amount: float = Field(gt=0)
     description: str
     category_id: int
+    date: Optional[datetime] = None
 
 class IncomeCreate(BaseModel):
     amount: float = Field(gt=0)
     description: str
+    date: Optional[datetime] = None
 
 class CategoryCreate(BaseModel):
     name: str = Field(min_length=2, max_length=50)
