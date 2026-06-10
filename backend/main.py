@@ -13,6 +13,7 @@ from routers.categories import router as categories_router
 from routers.budget import router as budget_router
 from routers.dashboard import router as dashboard_router
 from routers.incomes import router as incomes_router
+from routers.transactions import router as transactions_router
 
 app = FastAPI()
 
@@ -20,7 +21,9 @@ app.add_middleware(
     CORSMiddleware,
     allow_origins=[
         "http://127.0.0.1:5500",
-        "http://localhost:5500"
+        "http://localhost:5500",
+        "http://127.0.0.1:15500",
+        "http://localhost:15500",
     ],
     allow_credentials=True,
     allow_methods=["*"],
@@ -50,3 +53,4 @@ app.include_router(categories_router)
 app.include_router(budget_router)
 app.include_router(dashboard_router)
 app.include_router(incomes_router)
+app.include_router(transactions_router)
