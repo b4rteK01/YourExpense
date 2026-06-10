@@ -1163,27 +1163,46 @@ if (changePasswordForm) {
 // ============================================================
 
 const deleteAccountBtn = document.getElementById('delete-account-btn');
+
 if (deleteAccountBtn) {
     deleteAccountBtn.addEventListener('click', async (e) => {
         e.preventDefault();
-        const confirmed = await showConfirm('Czy na pewno chcesz usunąć konto? Tej operacji nie można cofnąć.', 'Usuń konto');
+
+        const confirmed = await showConfirm(
+            'Czy na pewno chcesz usunąć konto? Tej operacji nie można cofnąć.',
+            'Usuń konto'
+        );
         if (!confirmed) return;
 
         try {
-            const response = await fetchWithAuth(`${API_URL}/me`, {
-                method: 'DELETE'
-            });
+            const response = await fetchWithAuth(
+                `${API_URL}/me`,
+                {
+                    method: 'DELETE'
+                }
+            );
 
             if (!response || !response.ok) {
                 throw new Error();
             }
 
             localStorage.clear();
-            showToast('Konto zostało usunięte.', 'success');
-            setTimeout(() => location.reload(), 900);
+
+            showToast(
+                'Konto zostało usunięte.',
+                'success'
+            );
+
+            setTimeout(() => {
+                location.reload();
+            }, 1000);
+
         } catch (error) {
             console.error(error);
-            showToast('Nie udało się usunąć konta.', 'error');
+            showToast(
+                'Nie udało się usunąć konta.',
+                'error'
+            );
         }
     });
 }
